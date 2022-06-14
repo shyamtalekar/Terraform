@@ -40,7 +40,7 @@ resource "aws_s3_bucket_policy" "dev-bucket-policy" {
   "Statement": [
     {
       "Sid": "Stmt1655170827079",
-      "Action": "s3:*",
+      "Action": "s3:GetObject",
       "Effect": "Allow",
       "Resource": "aws_s3_bucket.dev-bucket.arn",
       "Principal": {
