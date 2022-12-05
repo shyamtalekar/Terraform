@@ -1,0 +1,39 @@
+resource "aws_instance" "ec2" {
+  count                   = var.autoscaling_config.enable == false ? 1 : 0
+  ami                     = var.is_dr ? data.aws_ami.dr_ami[0].id : (local.query_ami_id ? var.ami_name : data.aws_ami.name_filter[0].id)
+  instance_type           = var.instance_type
+  subnet_id               = local.local_subnet_id
+  vpc_security_group_ids  = concat(var.security_group_ids, [data.aws_ssm_parameter.linux-sg.value])
+  iam_instance_profile    = local.ec2_instance_profile
+  disable_api_termination = var.enable_termination_protection
+  tags                    = var.tags
+  #volume_tags             = merge(var.tags, { MountPoint = "OS", Name = "${local.ec2_name}-ebs" })
+  user_data               = var.vendor_ami_owner == "" ? data.template_cloudinit_config.init_ec2.rendered : null
+  key_name                = var.vendor_ami_owner != "" ? var.key_pair_name : null
+  monitoring              = true
+  metadata_options {
+    http_endpoint           = "enabled"
+    http_tokens             = "required"
+  }
+
+
+
+#Using above linux module template, I can create multiple instance
+module "linux-test-server" {
+  count              = var.linux_count
+  source             = "git::codecommit://module-aws-ec2-linux?ref=v5"
+  ami_name           = "ami-019599717e2dd5baa"
+  instance_type      = var.instance_type
+ vpc_tier            = var.vpc_tier
+  vpc_group          = var.vpc_group
+  security_group_ids = [aws_security_group.ansible-ad-test-ec2_security_group.id]
+  application        = var.application
+  service            = "ansible_test"
+  environment        = var.environment
+  hostname           = format("am-ansible-agent-%03d", count.index + 1)
+  dns_name           = format("am-ansible-agent-%03d", count.index + 1)
+  deployment_az      = var.deployment_az[count.index % var.linux_count]
+  vendor_ami_owner   = "Anoop Dabral"
+  key_pair_name      = "anoop-ansible-key"
+  tags               = var.tags
+}
